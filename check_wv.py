@@ -3,15 +3,21 @@ from gensim.models import Word2Vec
 from collections import defaultdict
 import numpy as np
 
-path = '/home/clare/Data/word_vectors/semeval/sense/ccoha1.vec'
+dataset = 'semeval_68'
+corpus = 'ccoha2'
+run = 'new'
+path = f'/home/clare/Data/word_vectors/{dataset}/{run}/{corpus}.vec'
 model = Word2Vec.load(path)
 
-with open('/home/clare/Data/corpus_data/semeval/truth/binary.txt') as fin:
-    targets = []
-    for target in fin.read().strip().split('\n'):
-        word, label = target.split('\t')
-        target, pos = word.split('_')
-        targets.append(target)
+# with open(f'/home/clare/Data/corpus_data/{dataset}/targets.txt') as fin:
+#     targets = []
+#     for target in fin.read().strip().split('\n'):
+#         word, label = target.split('\t')
+#         target, pos = word.split('_')
+#         targets.append(target)
+
+with open(f'/home/clare/Data/corpus_data/{dataset}/targets.txt') as fin:
+    targets = fin.read().strip().split('\n')
 
 # vocab = list(model.wv.index_to_key)
 # vectors=model.wv.get_normed_vectors()
@@ -37,7 +43,8 @@ for target, labels in senses.items():
 
 sense_counts
 #%%
-for target, labels in senses.items():
+for target in sorted(senses):
+    labels = senses[target]
     avg = np.zeros(300)
     print(f'========= {target.capitalize()} =========')
     for num in sorted(labels):
