@@ -1,12 +1,11 @@
 #%%
-from numpy import vectorize
-from base_wv import full_file, main
+from base_wv import main
 
 for corpus_name in ["ccoha1", "ccoha2"]:
     dataset = "semeval"
     run = "sense"
 
-    min_count = 4 
+    min_count = 20
     vector_size = 300
     load_data = True
     save_data = False
@@ -35,7 +34,7 @@ for corpus_name in ["ccoha1", "ccoha2"]:
         "sampled_non_target_file" : f'/home/clare/Data/word_vectors/semeval/extra_data/{corpus_name}_sents.dat',
         "export_file" : f'/home/clare/Data/word_vectors/{dataset}/both_{run}/{corpus_name}_both.vec',
         
-        "sense_path" :  f'/home/clare/Data/masking_results/{dataset}/all/sense_sentences.csv',
+        "sense_path" :  f'/home/clare/Data/masking_results/{dataset}/all_1/sense_sentences.csv',
         "target_path" : f'/home/clare/Data/corpus_data/{dataset}/subset/target_sentences.csv',
         }
 
@@ -44,12 +43,3 @@ for corpus_name in ["ccoha1", "ccoha2"]:
 
 print('\nDone!')
 # %%
-
-target_df = pd.read_csv(f'/home/clare/Data/masking_results/{dataset}/all/target_sense_labels.csv', index_col='word_index')
-sent_df = pd.read_csv(f'/home/clare/Data/corpus_data/{dataset}/subset/target_sentences.csv', index_col='sent_id')
-
-for corpus in ['ccoha1', 'ccoha2']:
-    ids = sent_df[sent_df.corpus == corpus].index
-    subset = target_df[target_df.sent_id.isin(ids)]
-
-    print(subset.groupby(['target', 'cluster']).count().min())
