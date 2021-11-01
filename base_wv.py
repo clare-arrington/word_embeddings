@@ -10,6 +10,33 @@ import glob
 import tqdm
 import re
 
+def make_config(
+    dataset, corpus_name, run, min_count, 
+    vector_size, targets, load_data, save_data,
+    ):
+    config = {
+        "dataset": dataset, 
+        "corpus_name" : corpus_name,
+        "run": run, 
+        "min_count" : min_count, 
+        "vector_size" : vector_size,
+        "num_sents" : None,
+        "targets" : targets,
+
+        "load_data" : load_data,
+        "save_data" : save_data,
+
+        "non_target_file" : f'/home/clare/Data/corpus_data/{dataset}/subset/{corpus_name}_non_target.dat',
+        "sampled_non_target_file" : f'/home/clare/Data/word_vectors/{dataset}/extra_data/{corpus_name}_sents.dat',
+        "export_file" : f'/home/clare/Data/word_vectors/{dataset}/{run}/{corpus_name}.vec',
+        
+        "sense_path" :  f'/home/clare/Data/masking_results/{dataset}/{corpus_name}/sense_sentences.csv',
+        "target_path" : f'/home/clare/Data/corpus_data/{dataset}/subset/target_sentencess.csv',
+        }
+
+    return config
+
+
 def load_data_sentences(path, subset=None):
     if '.dat' in path:
         with open(path, 'rb') as f:
@@ -52,7 +79,6 @@ def load_plain_target_sents(target_path, subset_path):
 
     return target_sents 
 
-# TODO: add this in the appropriate places
 # Reg pattern matches three things: word.#, word_pos, word
 def clean_sentences(sentences, pattern=None):
     print('\nCleaning data')
@@ -119,7 +145,7 @@ def get_normal_data(
         print(f'Loading new data from {non_target_file}')
         normal_sents = load_data_sentences(non_target_file, subset=num_sents)
     
-        sentences, _ = clean_sentences(normal_sents, targets) 
+        sentences = clean_sentences(normal_sents, targets) 
         ## above shouldn't need targets b/c no normal sent should have a target word in it anyway
         ## verify this first before removing ig
 
@@ -149,7 +175,7 @@ def get_sense_data(sense_path, targets, corpus, target_path):
 ## Also don't get info on them in here though :/
 def get_target_data(target_path, subset_path):
     target_sents = load_plain_target_sents(target_path, subset_path)
-    clean_sents, _ = clean_sentences(target_sents)
+    clean_sents = clean_sentences(target_sents)
 
     return clean_sents
 
@@ -183,7 +209,7 @@ def full_file(config):
     sentences = pull_full_data(f'/home/clare/Data/corpus_data/{config["dataset"]}/subset/{config["corpus_name"]}.txt')
     # print(sentences[:3])
 
-    sentences, _ = clean_sentences(sentences)
+    sentences = clean_sentences(sentences)
     # print(sentences[:3])
 
     print(f'\n{len(sentences)} total sentences prepped for model')
@@ -229,23 +255,19 @@ def main(config):
     print(f'Model length: {len(model.wv.index_to_key)}')
 
     ##### 
-    targets = [target.split('_')[0] for target in config['targets']]
-    not_removed = []
-    included = []
-    for target in targets:
-        if target in model.wv.index_to_key:
-            not_removed.append(target)
-    print(f'{len(not_removed)} target bases not removed')
-    print(', '.join(not_removed))
+    # targets = [target.split('_')[0] for target in config['targets']]
+    # not_removed = []
+    # included = []
+    # for target in targets:
+    #     if target in model.wv.index_to_key:
+    #         not_removed.append(target)
+    # print(f'{len(not_removed)} target bases not removed')
+    # print(', '.join(not_removed))
 
-    for target in config['targets']:
-        if target in model.wv.index_to_key:
-            included.append(target)
-    print(f'\n{len(included)} targets included')
-    print(', '.join(included))
-
-# %%
-## TODO: if I want to make changes to config I have to reload; is that annoying?
-##main(semeval_config)
+    # for target in config['targets']:
+    #     if target in model.wv.index_to_key:
+    #         included.append(target)
+    # print(f'\n{len(included)} targets included')
+    # print(', '.join(included))
 
 # %%
