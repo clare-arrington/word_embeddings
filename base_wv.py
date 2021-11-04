@@ -167,7 +167,7 @@ def get_sense_data(sense_path, targets, corpus, target_path):
 
     sense_sents = sents.sense_sentence.apply(eval)
     clean_sents, found_senses = filter_sentences(sense_sents, targets)
-    print(f'{len(found_senses)} senses found')
+    print(f'{len(found_senses)} sense occurences found')
 
     return clean_sents, found_senses
 
@@ -239,7 +239,8 @@ def main(config):
             config['sense_path'], config['targets'],
             config['corpus_name'], config['target_path'])
         
-        print('5 most common targets found')
+        print(f'{len(Counter(found_senses))} senses found')
+        print('5 most common targets')
         print(Counter(found_senses).most_common(5))
     
     elif config['run'] == 'new':
