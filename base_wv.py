@@ -3,16 +3,24 @@ from nltk.corpus import stopwords
 from gensim.models import Word2Vec
 from collections import Counter
 from pathlib import Path
+from typing import List
 import pandas as pd
-import pickle
+import pickle 
 import random
 import glob
 import tqdm
 import re
 
+## TODO: adding a log file would be nice
+## Could also save config as JSON or something for reference
+
+## Paths get set to default values. To change just override after it's set.
 def make_config(
-    dataset, corpus_name, run, min_count, 
-    vector_size, targets, load_data, save_data,
+    dataset: str, corpus_name: str, run: str, 
+    min_count: int, vector_size: int,
+    targets: List[str], 
+    load_data: bool, save_data: bool, 
+    data_path: str
     ):
     config = {
         "dataset": dataset, 
@@ -26,16 +34,17 @@ def make_config(
         "load_data" : load_data,
         "save_data" : save_data,
 
-        "non_target_file" : f'/home/clare/Data/corpus_data/{dataset}/subset/{corpus_name}_non_target.dat',
-        "sampled_non_target_file" : f'/home/clare/Data/word_vectors/{dataset}/extra_data/{corpus_name}_sents.dat',
-        "export_file" : f'/home/clare/Data/word_vectors/{dataset}/{run}/{corpus_name}.vec',
+        "non_target_file" : f'{data_path}/corpus_data/{dataset}/subset/{corpus_name}_non_target.dat',
+        "stored_non_t_file" : f'{data_path}/word_vectors/{dataset}/extra_data/{corpus_name}_sents.dat',
         
-        "sense_path" :  f'/home/clare/Data/masking_results/{dataset}/{corpus_name}/sense_sentences.csv',
-        "target_path" : f'/home/clare/Data/corpus_data/{dataset}/subset/target_sentencess.csv',
+        "target_file" : f'{data_path}/corpus_data/{dataset}/subset/target_sentences.csv',
+        "stored_t_file" : f'{data_path}/word_vectors/{dataset}/extra_data/{corpus_name}_target_sents.dat',
+
+        "export_file" : f'{data_path}/word_vectors/{dataset}/{run}/{corpus_name}.vec',
+        "sense_file" :  f'{data_path}/masking_results/{dataset}/{corpus_name}/sense_sentences.csv',
         }
 
     return config
-
 
 def load_data_sentences(path, subset=None):
     if '.dat' in path:
@@ -55,30 +64,6 @@ def load_data_sentences(path, subset=None):
     print(f'{num_samples} sentences\n')
     return sentences
 
-## Get sentences with target words that weren't sense labeled
-def load_plain_target_sents(target_path, subset_path):
-    data = pd.read_csv(target_path)
-    data.formatted_sentence = data.formatted_sentence.apply(eval)
-    print(f'{len(data)} target sentences loaded')
-
-    if subset_path is None:
-        target_sents = list(data.sentence)
-    else:
-        sentence_ids = []
-        for row in glob.glob(f'{subset_path}/*.dat'):
-            target, _ = row[len(subset_path)+1:].split('_')
-            
-            with open(row, 'rb') as fin:
-                clusters = pickle.load(fin)
-                for id, cluster in clusters.items():
-                    sentence_ids.extend(cluster)
-
-        target_sents = data[data.word_index.isin(sentence_ids)]
-        target_sents = list(target_sents.sentence)
-        print(f'\n{len(target_sents)} target sentences selected')
-
-    return target_sents 
-
 # Reg pattern matches three things: word.#, word_pos, word
 def clean_sentences(sentences, pattern=None):
     print('\nCleaning data')
@@ -87,8 +72,8 @@ def clean_sentences(sentences, pattern=None):
 
     clean_sents = []
     for sent in tqdm.tqdm(sentences):
+        sent = re.sub('"', '', sent)
         cleaned = re.findall(reg_pattern, sent)
-        
         clean_sents.append(cleaned) 
 
     return clean_sents
@@ -116,14 +101,6 @@ def filter_sentences(sentences, sense_words=[]):
             #     new_sent.append(word)
                 # continue
 
-            ## For the SemEval format: word_pos 
-            ## Necessary?
-            # elif '_' in word:
-            #     print(word)
-            #     target, pos = word.split('_')
-            #     found_senses.append(target)
-            #     clean_sent.append(target)
-
             elif word not in stops:
                 new_sent.append(word)
 
@@ -132,13 +109,13 @@ def filter_sentences(sentences, sense_words=[]):
     return filtered_sents, found_senses
   
 def get_normal_data(
-    non_target_file, sampled_non_target_file, 
+    non_target_file, stored_non_t_file, 
     targets, num_sents=None,
     load_data=False, save_data=False):
 
     if load_data:
-        print(f'\nLoading already sampled data from {sampled_non_target_file}')
-        with open(sampled_non_target_file, 'rb') as pf:
+        print(f'\nLoading already parsed data from {stored_non_t_file}')
+        with open(stored_non_t_file, 'rb') as pf:
             sentences = pickle.load(pf)
             print(f'\n{len(sentences)} normal sentences loaded')
     else:    
@@ -150,18 +127,18 @@ def get_normal_data(
         ## verify this first before removing ig
 
         if save_data:
-            Path(sampled_non_target_file).parent.mkdir(parents=True, exist_ok=True)
-            print(f'\nSaving new data to {sampled_non_target_file}')
-            with open(sampled_non_target_file, 'wb') as pf:
+            Path(stored_non_t_file).parent.mkdir(parents=True, exist_ok=True)
+            print(f'\nSaving new data to {stored_non_t_file}')
+            with open(stored_non_t_file, 'wb') as pf:
                 pickle.dump(sentences, pf)
 
     return sentences
 
-def get_sense_data(sense_path, targets, corpus, target_path):
-    sents = pd.read_csv(sense_path, index_col='sent_id')
+def get_sense_data(sense_file, targets, corpus, target_file):
+    sents = pd.read_csv(sense_file, index_col='sent_id')
 
-    if 'all' in sense_path:
-        all_sents = pd.read_csv(target_path, index_col='sent_id')
+    if 'all' in sense_file:
+        all_sents = pd.read_csv(target_file, index_col='sent_id')
         sents = sents.join(all_sents)
         sents = sents[sents.corpus == corpus]
 
@@ -171,17 +148,37 @@ def get_sense_data(sense_path, targets, corpus, target_path):
 
     return clean_sents, found_senses
 
-## We don't pass in targets to so they aren't excluded
-## Also don't get info on them in here though :/
-def get_target_data(target_path, subset_path):
-    target_sents = load_plain_target_sents(target_path, subset_path)
-    clean_sents = clean_sentences(target_sents)
+## TODO: Some values are string already and some aren't?
+## Get sentences with target words that weren't sense labeled
+def get_target_data(target_file, stored_t_file, load_data, save_data):
+    if load_data:
+        print(f'\nLoading already parsed data from {stored_t_file}')
+        with open(stored_t_file, 'rb') as pf:
+            sentences = pickle.load(pf)
+            print(f'\n{len(sentences)} target sentences loaded')
 
-    return clean_sents
+    else:    
+        print(f'Loading target data from {target_file}')
+        data = pd.read_csv(target_file)
+        # data.formatted_sentence = data.formatted_sentence.apply(eval)
+        print(f'{len(data)} target sentences loaded')
+
+        sentences = list(data.sentence)
+        sentences = clean_sentences(sentences)
+
+        if save_data:
+            Path(stored_t_file).parent.mkdir(parents=True, exist_ok=True)
+            print(f'\nSaving target data to {stored_t_file}')
+            with open(stored_t_file, 'wb') as pf:
+                pickle.dump(sentences, pf)
+
+    return sentences
 
 def save_model(export_file, sentences, min_count, vector_size):
+    print('Starting to make model')
     Path(export_file).parent.mkdir(parents=True, exist_ok=True)
     model = Word2Vec(sentences, vector_size=vector_size, min_count=min_count, window=10)
+    print('Starting to save model')
     model.save(export_file)
     print('Model saved!')
     return model
@@ -221,12 +218,9 @@ def main(config):
     print(f"Model will be saved to {config['export_file']}")
 
     sentences = get_normal_data(
-        config['non_target_file'], 
-        config['sampled_non_target_file'], 
-        config['targets'],
-        config['num_sents'],
-        config['load_data'],
-        config['save_data']
+        config['non_target_file'], config['stored_non_t_file'], 
+        config['targets'], config['num_sents'],
+        config['load_data'], config['save_data']
         )
 
     # t = set([word for words in sentences for word in words])
@@ -236,17 +230,21 @@ def main(config):
 
     if config['run'] == 'sense':
         clean_sents, found_senses = get_sense_data(
-            config['sense_path'], config['targets'],
-            config['corpus_name'], config['target_path'])
+            config['sense_file'], config['targets'],
+            config['corpus_name'], config['target_file'])
         
         print('5 most common targets found')
         print(Counter(found_senses).most_common(5))
     
     elif config['run'] == 'new':
-        ## TODO: fix this?
-        clean_sents = get_target_data(config['target_path'], config['subset_path'])
+        # clean_sents = get_target_data(
+        #     config['target_file'], config['stored_t_file'], 
+        #     config['load_data'], config['save_data'])
+        clean_sents = get_target_data(
+            config['target_file'], config['stored_t_file'], 
+            False, True)
         ## listcomp w/ intersect 
-        print(set(clean_sents[0]).intersection(set(config['targets'])))
+        print(f'Proof of target presence:', set(clean_sents[0]).intersection(set(config['targets'])))
 
     sentences.extend(clean_sents)
     print(f'\n{len(sentences)} total sentences prepped for model')
