@@ -1,3 +1,6 @@
+#%%
+from base_wv import main, make_config
+
 def get_us_uk_targets(path, get_us=False, get_uk=False):
     targets = []
     ## Get dissimilar
@@ -18,32 +21,27 @@ def get_us_uk_targets(path, get_us=False, get_uk=False):
     return targets
 
 dataset = "us_uk"
-corpus_name = "bnc"
-run = "new"
+corpus_name = "coca"
+run = "sense"
+data_path = '/data/arrinj'
 
+## TODO: can I do something about this?
+## I should just filter it out myself for other words I think
+## Min_word_count: 100 BNC, 300 COCA
 min_count = 50
-num_sents = 1000000
-
-input_path = '/home/clare/Data/corpus_data/us_uk'
+vector_size = 100
+load_data = True
+save_data = False
 
 if corpus_name == 'bnc':
-    targets = get_us_uk_targets(f'{input_path}/truth', get_uk=True)
+    targets = get_us_uk_targets(f'{data_path}/corpus_data/us_uk/truth', get_uk=True)
 elif corpus_name == 'coca':
-    targets = get_us_uk_targets(f'{input_path}/truth', get_us=True)
+    targets = get_us_uk_targets(f'{data_path}/corpus_data/us_uk/truth', get_us=True)
 
-config = {
-    "dataset": dataset, 
-    "corpus_name" : corpus_name,
-    "run": run, 
-    "min_count" : min_count, 
-    "num_sents" : num_sents,
-    "targets" : targets,
+config = config = make_config(
+        dataset, corpus_name, run, min_count, 
+        vector_size, targets, load_data, save_data, data_path)
 
-    "non_target_path" : f'/home/clare/Data/corpus_data/{dataset}/subset/{corpus_name}_non_target.dat',
-    "sampled_non_target_path" : f'/home/clare/Data/word_vectors/{dataset}/extra_data/{corpus_name}_sents_{num_sents}.dat',
-    
-    "export_path" : f'/home/clare/Data/word_vectors/{dataset}/{run}',
-    "sense_path" :  f'/home/clare/Data/masking_results/{dataset}/{corpus_name}/sentences/',
-    "target_path" : f'/home/clare/Data/corpus_data/{dataset}/subset/{corpus_name}_target_sents.csv',
-    "subset_path" : f'/home/clare/Data/masking_results/{dataset}/{corpus_name}/clusters'
-    }
+main(config)
+
+#%%
