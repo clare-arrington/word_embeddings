@@ -42,9 +42,6 @@ targets = ['little', 'much', 'hand', 'long',
             'party', 'truth', 'want', 'fact', 
             'soul', 'poor', 'object']
 
-# lens = []
-# counts = []
-# targets = []
 normal_len = []
 normal_count = []
 target_len = []
@@ -55,16 +52,15 @@ for word in vocab:
     count = model.wv.get_vecattr(word, 'count')
     vec_len = numpy.linalg.norm(model.wv[word])
 
-    if word in targets:
-        # color.append('firebrick')
-        target_count.append(count)
-        target_len.append(vec_len)
-    elif '.' in word:
-        # color.append('firebrick')
-        sense_count.append(count)
-        sense_len.append(vec_len)
+    if '.' in word:
+        w = word.split('.')[0]
+        if w in targets:
+            target_count.append(count)
+            target_len.append(vec_len)
+        else:
+            sense_count.append(count)
+            sense_len.append(vec_len)
     else:
-        # color.append('steelblue')
         normal_count.append(count)
         normal_len.append(vec_len)
     
@@ -81,6 +77,8 @@ plt.scatter(target_count, target_len, c='firebrick', label='target')
 plt.scatter(sense_count, sense_len, c='teal', label='sense')
 plt.xlabel('Term Frequency')
 plt.ylabel('Term Vector Length')
+plt.ylim(-.5,18.5)
+plt.xlim(-1000, 22000)
 plt.legend()
 plt.show()
 # plt.savefig('test.png')

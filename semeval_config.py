@@ -2,7 +2,7 @@
 from base_wv import full_file, main, make_config
 
 for corpus_name in ["ccoha1_extra"]:
-    corpus_name = 'ccoha2'
+#    corpus_name = 'ccoha2'
     dataset = "semeval"
     run = "sense"
 
@@ -11,11 +11,9 @@ for corpus_name in ["ccoha1_extra"]:
     load_data = False
     save_data = True
 
-    with open('/home/clare/Data/corpus_data/semeval/targets.txt') as fin:
-        targets = fin.read().split()
-        if run == 'sense':
-            targets = [target.split('_')[0] for target in targets]
-
+    target_data = f'/home/clare/Data/masking_results/semeval/{corpus_name}/target_sense_labels.csv'
+    target_data = pd.read_csv(target_data, usecols=['target'])
+    targets = [t for t in target_data.target.unique()]
     # print(f'{len(targets)} targets loaded')
 
     config = make_config(

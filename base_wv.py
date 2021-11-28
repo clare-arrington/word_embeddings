@@ -15,12 +15,13 @@ import re
 ## Could also save config as JSON or something for reference
 
 ## Paths get set to default values. To change just override after it's set.
-def make_config(
+
+def make_config(   
     dataset: str, corpus_name: str, run: str, 
     min_count: int, vector_size: int,
     targets: List[str], 
     load_data: bool, save_data: bool, 
-    data_path: str
+    data_path: str 
     ):
     config = {
         "dataset": dataset, 
@@ -198,29 +199,16 @@ def pull_full_data(data_path):
 
     return sentences
 
-#%%
-def full_file(config):
-    print(f"Model will be saved to {config['export_file']}")
-
-    ## TODO: some assumption on sent?
-    sentences = pull_full_data(f'/home/clare/Data/corpus_data/{config["dataset"]}/subset/{config["corpus_name"]}.txt')
-    # print(sentences[:3])
-
-    sentences = clean_sentences(sentences)
-    # print(sentences[:3])
-
-    print(f'\n{len(sentences)} total sentences prepped for model')
-
-    model = save_model(config['export_file'], sentences, config['min_count'])
-    print(f'Model length: {len(model.wv.index_to_key)}\n')
-
 def main(config):    
     print(f"Model will be saved to {config['export_file']}")
 
     sentences = get_normal_data(
-        config['non_target_file'], config['stored_non_t_file'], 
-        config['targets'], config['num_sents'],
-        config['load_data'], config['save_data']
+        config['non_target_file'], 
+        config['stored_non_t_file'], 
+        config['targets'], 
+        config['num_sents'],
+        config['load_data'], 
+        config['save_data']
         )
 
     # t = set([word for words in sentences for word in words])
@@ -230,8 +218,10 @@ def main(config):
 
     if config['run'] == 'sense':
         clean_sents, found_senses = get_sense_data(
-            config['sense_file'], config['targets'],
-            config['corpus_name'], config['target_file'])
+            config['sense_path'], 
+            config['targets'],
+            config['corpus_name'], 
+            config['target_path'])
         
         print(f'{len(Counter(found_senses))} senses found')
         print('5 most common targets')
@@ -250,10 +240,16 @@ def main(config):
     sentences.extend(clean_sents)
     print(f'\n{len(sentences)} total sentences prepped for model')
 
-    model = save_model(config['export_file'], sentences, config['min_count'], config['vector_size'])
+    model = save_model(
+        config['export_file'], 
+        sentences, 
+        config['min_count'], 
+        config['vector_size'])
     print(f'Model length: {len(model.wv.index_to_key)}')
 
     ##### 
+    # Few checks for making sure senses were accounted for correctly
+    # TODO: put behind a verify boolean
     # targets = [target.split('_')[0] for target in config['targets']]
     # not_removed = []
     # included = []
