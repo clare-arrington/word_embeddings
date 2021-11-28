@@ -38,7 +38,7 @@ if corpus_name == 'bnc':
 elif corpus_name == 'coca':
     targets = get_us_uk_targets(f'{data_path}/corpus_data/us_uk/truth', get_us=True)
 
-config = config = make_config(
+config = make_config(
         dataset, corpus_name, run, min_count, 
         vector_size, targets, load_data, save_data, data_path)
 
