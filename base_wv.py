@@ -17,21 +17,23 @@ import re
 
 ## Paths get set to default values. To change just override after it's set.
 def make_config(
-    dataset: str, corpus_name: str, run: str, 
-    min_count: int, vector_size: int,
+    dataset: str, 
+    corpus_name: str, 
+    run: str, 
+    min_count: int, 
+    vector_size: int,
     targets: List[str], 
     load_data: bool, save_data: bool, 
-    data_path: str, slice_num: int = None,
+    data_path: str, 
+    slice_num: int = None,
     pattern: str = r'[a-z]+\.\d|[a-z]+'
     ):
-    # r'[a-z]+_[a-z]{2}|[a-z]+\.\d|[a-z]+'
 
     if slice_num is not None:
-        slice_path = f'/slice_{slice_num}'
+        slice_path = f'/slice_{slice_num}/'
     else:
         slice_path = ''
 
-    ## TODO: will have to rename US / UK files to match new structure
     paths = {
         'corpus_path'     : f'corpus_data/{dataset}/subset/{corpus_name}',
         'extra_data_path' : f'word_vectors/{dataset}/extra_data/{corpus_name}',
@@ -41,7 +43,7 @@ def make_config(
 
     for path_name, path in paths.items():
         paths[path_name] = f'{data_path}/{path}{slice_path}'
-     
+    
     config = {
         "dataset": dataset, 
         "corpus_name" : corpus_name,
@@ -55,7 +57,8 @@ def make_config(
         "load_data" : load_data,
         "save_data" : save_data,
 
-        "non_target_file" : paths['corpus_path'] + "/non_target.pkl",
+        "non_target_file" : paths['corpus_path'] + "_non_target.pkl",
+        # TODO: this is different
         "stored_non_t_file" : paths['extra_data_path'] + "/sents.pkl",
         
         "target_file" : paths['corpus_path'] + "/target_sentences.pkl",
@@ -107,7 +110,6 @@ def filter_sentences(sentences, sense_words=[]):
     filtered_sents = []
     for sent in tqdm.tqdm(sentences):
         new_sent = []
-
         for word in sent:
             word = word.lower()
 
@@ -119,20 +121,18 @@ def filter_sentences(sentences, sense_words=[]):
             ## If the target word isn't in either format, 
             ## but we specified it's a target, exclude it.
             ## That's b/c we have both labeled and unlabeled which is bad 
-            # if word in sense_words:
-            #     found_senses.append(word)
-            #     new_sent.append(word)
-                # continue
+            elif word in sense_words:
+                found_senses.append(word)
+                new_sent.append(word)
 
             elif word not in stops and len(word) > 2:
                 new_sent.append(word)
-
         filtered_sents.append(new_sent)
-
     return filtered_sents, found_senses
   
 def get_normal_data(
-    non_target_file, stored_non_t_file, pattern,
+    non_target_file, stored_non_t_file, 
+    pattern,
     num_sents=None,
     load_data=False, save_data=False):
 
@@ -163,11 +163,6 @@ def get_sense_data(sense_file, targets):
     elif '.pkl' in sense_file:
         sents = pd.read_pickle(sense_file)
         sense_sents = sents.sense_sentence
-
-    # if 'all' in sense_file:
-    #     all_sents = pd.read_csv(target_file, index_col='sent_id')
-    #     sents = sents.join(all_sents)
-    #     sents = sents[sents.corpus == corpus]
 
     clean_sents, found_senses = filter_sentences(sense_sents, targets)
     print(f'{len(found_senses)} sense occurences found')
@@ -211,7 +206,7 @@ def save_model(export_file, sentences, min_count, vector_size):
     return model
 
 #%%
-def main(config):    
+def main(config, verify_senses=False):    
     print(f"Model will be saved to {config['export_file']}")
 
     sentences = get_normal_data(
@@ -237,12 +232,12 @@ def main(config):
         print(Counter(found_senses).most_common(5))
 
     elif config['run'] == 'new':
-        # clean_sents = get_target_data(
-        #     config['target_file'], config['stored_t_file'], 
-        #     config['load_data'], config['save_data'])
         clean_sents = get_target_data(
             config['target_file'], config['stored_t_file'], 
-            False, True)
+            config['load_data'], config['save_data'])
+        # clean_sents = get_target_data(
+        #     config['target_file'], config['stored_t_file'], 
+        #     False, True)
         ## listcomp w/ intersect; should see a target 
         print(f'Target(s) present in first sentence:', set(clean_sents[0]).intersection(set(config['targets'])))
 
@@ -257,21 +252,21 @@ def main(config):
     print(f'Model length: {len(model.wv.index_to_key)}')
 
     ##### 
-    # Few checks for making sure senses were accounted for correctly
-    # TODO: put behind a verify boolean
-    # targets = [target.split('_')[0] for target in config['targets']]
-    # not_removed = []
-    # included = []
-    # for target in targets:
-    #     if target in model.wv.index_to_key:
-    #         not_removed.append(target)
-    # print(f'{len(not_removed)} target bases not removed')
-    # print(', '.join(not_removed))
+    ## Few checks for making sure senses were accounted for correctly
+    if verify_senses:
+        targets = [target.split('_')[0] for target in config['targets']]
+        not_removed = []
+        included = []
+        for target in targets:
+            if target in model.wv.index_to_key:
+                not_removed.append(target)
+        print(f'{len(not_removed)} target bases not removed')
+        print(', '.join(not_removed))
 
-    # for target in config['targets']:
-    #     if target in model.wv.index_to_key:
-    #         included.append(target)
-    # print(f'\n{len(included)} targets included')
-    # print(', '.join(included))
+        for target in config['targets']:
+            if target in model.wv.index_to_key:
+                included.append(target)
+        print(f'\n{len(included)} targets included')
+        print(', '.join(included))
 
 # %%
