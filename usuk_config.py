@@ -20,28 +20,36 @@ def get_us_uk_targets(path, get_us=False, get_uk=False):
 
     return targets
 
-dataset = "us_uk"
-corpus_name = "coca"
-run = "sense"
-data_path = '/data/arrinj'
+def make_wv(corpus_name, run, load_data, save_data):
+    dataset = "us_uk"
+    data_path = '/data/arrinj'
 
-## TODO: can I do something about this?
-## I should just filter it out myself for other words I think
-## Min_word_count: 100 BNC, 300 COCA
-min_count = 50
-vector_size = 100
-load_data = True
-save_data = False
+    ## TODO: can I do something about this?
+    ## I should just filter it out myself for other words I think
+    ## Min_word_count: 100 BNC, 300 COCA
+    min_count = 50
+    vector_size = 100
 
-if corpus_name == 'bnc':
-    targets = get_us_uk_targets(f'{data_path}/corpus_data/us_uk/truth', get_uk=True)
-elif corpus_name == 'coca':
-    targets = get_us_uk_targets(f'{data_path}/corpus_data/us_uk/truth', get_us=True)
+    if corpus_name == 'bnc':
+        targets = get_us_uk_targets(f'{data_path}/corpus_data/us_uk/truth', get_uk=True)
+    elif corpus_name == 'coca':
+        targets = get_us_uk_targets(f'{data_path}/corpus_data/us_uk/truth', get_us=True)
 
-config = make_config(
-        dataset, corpus_name, run, min_count, 
-        vector_size, targets, load_data, save_data, data_path)
+    config = make_config(
+            dataset, corpus_name, run, min_count, 
+            vector_size, targets, 
+            load_data, save_data,
+            data_path)
 
-main(config)
+    main(config)
+
+# corpus_name = "bnc"
+# run = "new"
+# load_data = False
+# save_data = True
+
+make_wv("bnc", "new", False, True)
+make_wv("coca", "new", False, True)
+make_wv("bnc", "sense", True, False)
 
 #%%
