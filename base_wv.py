@@ -7,7 +7,6 @@ from typing import List
 import pandas as pd
 import pickle 
 import random
-import glob
 import tqdm
 import re
 
@@ -23,7 +22,8 @@ def make_config(
     min_count: int, 
     vector_size: int,
     targets: List[str], 
-    load_data: bool, save_data: bool, 
+    load_data: bool, 
+    save_data: bool, 
     data_path: str, 
     slice_num: int = None,
     pattern: str = r'[a-z]+\.\d|[a-z]+'
@@ -34,11 +34,13 @@ def make_config(
     else:
         slice_path = ''
 
+    ## TODO: these need to able to be different if slice
     paths = {
         'corpus_path'     : f'corpus_data/{dataset}/subset/{corpus_name}',
+        'target_path'     : f'corpus_data/{dataset}/subset/',
         'extra_data_path' : f'word_vectors/{dataset}/extra_data/{corpus_name}',
         'wv_path'         : f'word_vectors/{dataset}/{run}/{corpus_name}',
-        'masking_path'    : f'masking_results/{dataset}/{corpus_name}',
+        'masking_path'    : f'masking_results/{dataset}/{corpus_name}/',
     }
 
     for path_name, path in paths.items():
@@ -57,15 +59,14 @@ def make_config(
         "load_data" : load_data,
         "save_data" : save_data,
 
-        "non_target_file" : paths['corpus_path'] + "_non_target.pkl",
-        # TODO: this is different
-        "stored_non_t_file" : paths['extra_data_path'] + "/sents.pkl",
+        "non_target_file" : paths['corpus_path'] + "_non_target.dat",
+        "stored_non_t_file" : paths['extra_data_path'] + "_sents.pkl",
         
-        "target_file" : paths['corpus_path'] + "/target_sentences.pkl",
-        "stored_t_file" : paths['extra_data_path'] + "/target_sents.pkl",
+        "target_file" : paths['target_path'] + "target_sentences.pkl",
+        "stored_t_file" : paths['extra_data_path'] + "_target_sents.pkl",
 
         "export_file" : paths['wv_path'] + ".vec",
-        "sense_file" :  paths['masking_path'] + "/sense_sentences.pkl",
+        "sense_file" :  paths['masking_path'] + "sense_sentences.pkl",
         }
 
     return config
@@ -140,7 +141,7 @@ def get_normal_data(
         print(f'\nLoading already parsed data from {stored_non_t_file}')
         with open(stored_non_t_file, 'rb') as pf:
             sentences = pickle.load(pf)
-            print(f'\n{len(sentences)} normal sentences loaded')
+            print(f'\n{len(sentences):,} normal sentences loaded')
     else:    
         print(f'Loading new data from {non_target_file}')
         normal_sents = load_data_sentences(non_target_file, subset=num_sents)
@@ -165,28 +166,30 @@ def get_sense_data(sense_file, targets):
         sense_sents = sents.sense_sentence
 
     clean_sents, found_senses = filter_sentences(sense_sents, targets)
-    print(f'{len(found_senses)} sense occurences found')
+    print(f'{len(found_senses):,} sense occurences found')
 
     return clean_sents, found_senses
 
 ## Get sentences with target words that weren't sense labeled
-def get_target_data(target_file, stored_t_file, load_data, save_data):
+def get_target_data(target_file, stored_t_file, pattern, load_data, save_data):
     if load_data:
         print(f'\nLoading already parsed data from {stored_t_file}')
         with open(stored_t_file, 'rb') as pf:
             sentences = pickle.load(pf)
-            print(f'\n{len(sentences)} target sentences loaded')
+            print(f'\n{len(sentences):,} target sentences loaded')
     else:    
         print(f'Loading target data from {target_file}')
         if '.csv' in target_file:
             data = pd.read_csv(target_file)
-            sentences = data.sentence
-            sentences = clean_sentences(list(sentences))
-
         elif '.pkl' in target_file:
             data = pd.read_pickle(target_file)
-            sentences = list(data.processed_sentence)
-        print(f'{len(data)} target sentences loaded')
+            ## TODO: change processed sentence in news
+        
+        sentences = list(data.sentence)
+        sentences = clean_sentences(sentences, pattern)
+        ## TODO: also filter?
+        print(f'{len(sentences):,} target sentences loaded')
+        print(sentences[0])
 
         if save_data:
             Path(stored_t_file).parent.mkdir(parents=True, exist_ok=True)
@@ -227,29 +230,31 @@ def main(config, verify_senses=False):
         clean_sents, found_senses = get_sense_data(
             config['sense_file'], config['targets'])
         
-        print(f'{len(Counter(found_senses))} senses found')
+        print(f'{len(Counter(found_senses)):,} senses found')
         print('5 most common targets')
         print(Counter(found_senses).most_common(5))
 
     elif config['run'] == 'new':
         clean_sents = get_target_data(
             config['target_file'], config['stored_t_file'], 
+            config['pattern'],
             config['load_data'], config['save_data'])
         # clean_sents = get_target_data(
         #     config['target_file'], config['stored_t_file'], 
         #     False, True)
         ## listcomp w/ intersect; should see a target 
-        print(f'Target(s) present in first sentence:', set(clean_sents[0]).intersection(set(config['targets'])))
+        few_sents = [word for sent in clean_sents[:5] for word in sent]
+        print(f'Target(s) present in first few sentences:', set(few_sents).intersection(set(config['targets'])))
 
     sentences.extend(clean_sents)
-    print(f'\n{len(sentences)} total sentences prepped for model')
+    print(f'\n{len(sentences):,} total sentences prepped for model')
 
     model = save_model(
         config['export_file'], 
         sentences, 
         config['min_count'], 
         config['vector_size'])
-    print(f'Model length: {len(model.wv.index_to_key)}')
+    print(f'Model length: {len(model.wv.index_to_key):,}')
 
     ##### 
     ## Few checks for making sure senses were accounted for correctly
