@@ -1,27 +1,42 @@
 #%%
-from base_wv import full_file, main, make_config
+from base_wv import main, make_config
+import pandas as pd
 
-for corpus_name in ["ccoha1_extra"]:
-#    corpus_name = 'ccoha2'
-    dataset = "semeval"
-    run = "sense"
+def get_targets(data_path, corpus_name, run, from_masking=False):
+    if from_masking:
+        target_data = f'{data_path}/masking_results/semeval/{corpus_name}/target_sense_labels.pkl'
+        target_data = pd.read_pickle(target_data)
+        targets = [t for t in target_data.target.unique()]
+    else:
+        with open(f'{data_path}/corpus_data/semeval/targets.txt') as fin:
+            targets = fin.read().split()
+            if run == 'sense':
+                targets = [target.split('_')[0] for target in targets]
+    
+    print(f'{len(targets)} targets loaded')
+    print(targets[:5])
+    return targets
 
-    min_count = 20 
+def make_wv(corpus_name, run, load_data, save_data, dataset="semeval", data_path="/home/clare/Data"):
+    min_count = 50
     vector_size = 300
-    load_data = False
-    save_data = True
+    pattern = r'[a-z]+_[a-z]{2}|[a-z]+\.\d|[a-z]+'
 
-    target_data = f'/home/clare/Data/masking_results/semeval/{corpus_name}/target_sense_labels.csv'
-    target_data = pd.read_csv(target_data, usecols=['target'])
-    targets = [t for t in target_data.target.unique()]
-    # print(f'{len(targets)} targets loaded')
+    targets = get_targets(data_path, corpus_name, run)
 
     config = make_config(
-        dataset, corpus_name, run, min_count, 
-        vector_size, targets, load_data, save_data)
+            dataset, corpus_name, run, min_count, 
+            vector_size, targets, 
+            load_data, save_data,
+            data_path, pattern=pattern)
 
     main(config)
-    # full_file(config)
+    
+make_wv("1800s", "new", False, True)
+make_wv("2000s", "new", False, True)
+
+make_wv("1800s", "sense", True, False)
+make_wv("2000s", "sense", True, False)
 
 print('\nDone!')
 # %%

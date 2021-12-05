@@ -20,10 +20,7 @@ def get_us_uk_targets(path, get_us=False, get_uk=False):
 
     return targets
 
-def make_wv(corpus_name, run, load_data, save_data):
-    dataset = "us_uk"
-    data_path = '/data/arrinj'
-
+def make_wv(corpus_name, run, load_data, save_data, dataset="us_uk", data_path="/data/arrinj"):
     ## TODO: can I do something about this?
     ## I should just filter it out myself for other words I think
     ## Min_word_count: 100 BNC, 300 COCA
@@ -42,11 +39,6 @@ def make_wv(corpus_name, run, load_data, save_data):
             data_path)
 
     main(config)
-
-# corpus_name = "bnc"
-# run = "new"
-# load_data = False
-# save_data = True
 
 make_wv("bnc", "new", False, True)
 make_wv("coca", "new", False, True)
