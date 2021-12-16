@@ -3,7 +3,7 @@ from nltk.corpus import stopwords
 from gensim.models import Word2Vec
 from collections import Counter
 from pathlib import Path
-from typing import List
+from typing import Dict, List
 import pandas as pd
 import pickle 
 import random
@@ -25,26 +25,38 @@ def make_config(
     load_data: bool, 
     save_data: bool, 
     data_path: str, 
+    paths: Dict[str, str] = {},
     slice_num: int = None,
-    pattern: str = r'[a-z]+\.\d|[a-z]+'
+    pattern: str = r'[a-z]+\.\d|[a-z]+',
     ):
 
     if slice_num is not None:
-        slice_path = f'/slice_{slice_num}/'
+        slice_path = f'/slice_{slice_num}'
+
+        paths = {
+            'corpus_path'     : f'corpus_data/{dataset}/subset/{corpus_name}',
+            'target_path'     : f'corpus_data/{dataset}/subset',
+            'extra_data_path' : f'word_vectors/{dataset}/extra_data/{corpus_name}',
+            'wv_path'         : f'word_vectors/{dataset}/{run}/{corpus_name}',
+            'masking_path'    : f'masking_results/{dataset}/{corpus_name}',
+        }
+
+        for path_name, path in paths.items():
+            if 'wv' in path_name:
+                paths[path_name] = f'{data_path}/{path}{slice_path}'
+            else:
+                paths[path_name] = f'{data_path}/{path}{slice_path}/'
     else:
-        slice_path = ''
+        paths.update({
+            # 'corpus_path'     : f'corpus_data/{dataset}/subset/{corpus_name}{separator}',
+            # 'target_path'     : f'corpus_data/{dataset}/subset/',
+            'extra_data_path' : f'word_vectors/{dataset}/extra_data/{corpus_name}_',
+            'wv_path'         : f'word_vectors/{dataset}/{run}/{corpus_name}',
+            'masking_path'    : f'masking_results/{dataset}/{corpus_name}/',
+        })
 
-    ## TODO: these need to able to be different if slice
-    paths = {
-        'corpus_path'     : f'corpus_data/{dataset}/subset/{corpus_name}',
-        'target_path'     : f'corpus_data/{dataset}/subset/',
-        'extra_data_path' : f'word_vectors/{dataset}/extra_data/{corpus_name}',
-        'wv_path'         : f'word_vectors/{dataset}/{run}/{corpus_name}',
-        'masking_path'    : f'masking_results/{dataset}/{corpus_name}/',
-    }
-
-    for path_name, path in paths.items():
-        paths[path_name] = f'{data_path}/{path}{slice_path}'
+        for path_name, path in paths.items():
+            paths[path_name] = f'{data_path}/{path}'
     
     config = {
         "dataset": dataset, 
@@ -59,11 +71,11 @@ def make_config(
         "load_data" : load_data,
         "save_data" : save_data,
 
-        "non_target_file" : paths['corpus_path'] + "_non_target.dat",
-        "stored_non_t_file" : paths['extra_data_path'] + "_sents.pkl",
+        "non_target_file" : paths['corpus_path'] + "non_target.pkl",
+        "stored_non_t_file" : paths['extra_data_path'] + "sents.pkl",
         
         "target_file" : paths['target_path'] + "target_sentences.pkl",
-        "stored_t_file" : paths['extra_data_path'] + "_target_sents.pkl",
+        "stored_t_file" : paths['extra_data_path'] + "target_sents.pkl",
 
         "export_file" : paths['wv_path'] + ".vec",
         "sense_file" :  paths['masking_path'] + "sense_sentences.pkl",
