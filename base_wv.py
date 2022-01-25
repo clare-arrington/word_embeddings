@@ -14,74 +14,36 @@ import re
 ## Could also save config as JSON or something for reference
 ## Transition over all input data to pkl files
 
-## Paths get set to default values. To change just override after it's set.
-def make_config(
-    dataset: str, 
+## TODO: Paths get set to default values. This could use an overhaul, but what?
+def define_paths(
+    dataset_name: str, 
     corpus_name: str, 
-    run: str, 
-    min_count: int, 
-    vector_size: int,
-    targets: List[str], 
-    load_data: bool, 
-    save_data: bool, 
+    vector_type: str, 
     data_path: str, 
-    paths: Dict[str, str] = {},
-    slice_num: int = None,
-    pattern: str = r'[a-z]+\.\d|[a-z]+',
+    slice_num: int,
+    paths: Dict[str, str] = {}
     ):
 
-    if slice_num is not None:
-        slice_path = f'/slice_{slice_num}'
+    slice_path = f'/slice_{slice_num}'
 
-        paths = {
-            'corpus_path'     : f'corpus_data/{dataset}/subset/{corpus_name}',
-            'target_path'     : f'corpus_data/{dataset}/subset',
-            'extra_data_path' : f'word_vectors/{dataset}/extra_data/{corpus_name}',
-            'wv_path'         : f'word_vectors/{dataset}/{run}/{corpus_name}',
-            'masking_path'    : f'masking_results/{dataset}/{corpus_name}',
-        }
+    paths = {
+        'corpus_path'     : f'corpus_data/{dataset_name}/subset/{corpus_name}',
+        'target_path'     : f'corpus_data/{dataset_name}/subset',
+        'extra_data_path' : f'word_vectors/{dataset_name}/extra_data/{corpus_name}',
+        'wv_path'         : f'word_vectors/{dataset_name}/{vector_type}/{corpus_name}',
+        'masking_path'    : f'masking_results/{dataset_name}/{corpus_name}',
+    }
 
-        for path_name, path in paths.items():
-            if 'wv' in path_name:
-                paths[path_name] = f'{data_path}/{path}{slice_path}'
-            else:
-                paths[path_name] = f'{data_path}/{path}{slice_path}/'
-    else:
-        paths.update({
-            # 'corpus_path'     : f'corpus_data/{dataset}/subset/{corpus_name}{separator}',
-            # 'target_path'     : f'corpus_data/{dataset}/subset/',
-            'extra_data_path' : f'word_vectors/{dataset}/extra_data/{corpus_name}_',
-            'wv_path'         : f'word_vectors/{dataset}/{run}/{corpus_name}',
-            'masking_path'    : f'masking_results/{dataset}/{corpus_name}/',
-        })
+    for path_name, path in paths.items():
+        if 'wv' in path_name:
+            paths[path_name] = f'{data_path}/{path}{slice_path}'
+        else:
+            paths[path_name] = f'{data_path}/{path}{slice_path}/'
 
-        for path_name, path in paths.items():
-            paths[path_name] = f'{data_path}/{path}'
-    
-    config = {
-        "dataset": dataset, 
-        "corpus_name" : corpus_name,
-        "run": run, 
-        "min_count" : min_count, 
-        "vector_size" : vector_size,
-        "num_sents" : None,
-        "pattern" : pattern,
-        "targets" : targets,
+    for path_name, path in paths.items():
+        paths[path_name] = f'{data_path}/{path}'
 
-        "load_data" : load_data,
-        "save_data" : save_data,
-
-        "non_target_file" : paths['corpus_path'] + "non_target.pkl",
-        "stored_non_t_file" : paths['extra_data_path'] + "sents.pkl",
-        
-        "target_file" : paths['target_path'] + "target_sentences.pkl",
-        "stored_t_file" : paths['extra_data_path'] + "target_sents.pkl",
-
-        "export_file" : paths['wv_path'] + ".vec",
-        "sense_file" :  paths['masking_path'] + "sense_sentences.pkl",
-        }
-
-    return config
+    return paths
 
 def load_data_sentences(path, subset=None):
     if '.dat' or '.pkl' in path:
@@ -103,7 +65,7 @@ def load_data_sentences(path, subset=None):
 
 # Reg pattern matches three things: word.#, word_pos, word
 def clean_sentences(sentences, pattern):
-    print('\nCleaning data')
+    print(f'\nCleaning data by applying regex pattern : {pattern}')
 
     reg_pattern = re.compile(pattern)
 
@@ -117,7 +79,7 @@ def clean_sentences(sentences, pattern):
 
 def filter_sentences(sentences, sense_words=[]):  
     stops = stopwords.words('english')
-    print('\nFiltering data')
+    print(f'\nFiltering data ')
 
     found_senses = []
     filtered_sents = []
@@ -126,6 +88,7 @@ def filter_sentences(sentences, sense_words=[]):
         for word in sent:
             word = word.lower()
 
+            ## TODO: think about if and why this part was necessary
             first_word, *etc = word.split('.')
             if first_word in sense_words and len(etc) == 1: 
                 found_senses.append(word)
@@ -134,13 +97,15 @@ def filter_sentences(sentences, sense_words=[]):
             ## If the target word isn't in either format, 
             ## but we specified it's a target, exclude it.
             ## That's b/c we have both labeled and unlabeled which is bad 
-            elif word in sense_words:
-                found_senses.append(word)
-                new_sent.append(word)
+            # elif word in sense_words:
+            #     found_senses.append(word)
+            #     new_sent.append(word)
 
             elif word not in stops and len(word) > 2:
                 new_sent.append(word)
+
         filtered_sents.append(new_sent)
+
     return filtered_sents, found_senses
   
 def get_normal_data(
@@ -155,7 +120,7 @@ def get_normal_data(
             sentences = pickle.load(pf)
             print(f'\n{len(sentences):,} normal sentences loaded')
     else:    
-        print(f'Loading new data from {non_target_file}')
+        print(f'Loading normal data from {non_target_file}')
         normal_sents = load_data_sentences(non_target_file, subset=num_sents)
         clean_sents = clean_sentences(normal_sents, pattern)
         sentences, _ = filter_sentences(clean_sents) 
@@ -163,7 +128,7 @@ def get_normal_data(
 
         if save_data:
             Path(stored_non_t_file).parent.mkdir(parents=True, exist_ok=True)
-            print(f'\nSaving new data to {stored_non_t_file}')
+            print(f'\nSaving normal data to {stored_non_t_file}')
             with open(stored_non_t_file, 'wb') as pf:
                 pickle.dump(sentences, pf)
 
@@ -221,57 +186,64 @@ def save_model(export_file, sentences, min_count, vector_size):
     return model
 
 #%%
-def main(config, verify_senses=False):    
-    print(f"Model will be saved to {config['export_file']}")
+def main(
+    vector_type: str, 
+    min_count : int,
+    vector_size : int,
+    targets : List[str], 
+
+    load_data : bool, 
+    save_data : bool, 
+    data_path: str, 
+    file_paths: Dict[str, str],
+
+    num_sents : int = None,
+    pattern: str = r'[a-z]+\.\d|[a-z]+',
+    verify_senses: bool = False
+    ):    
+
+    for path_name, path in file_paths.items():
+        file_paths[path_name] = f'{data_path}/{path}'
+
+    print(f"Model will be saved to {file_paths['export_file']}")
 
     sentences = get_normal_data(
-        config['non_target_file'], 
-        config['stored_non_t_file'], 
-        config['pattern'], 
-        config['num_sents'],
-        config['load_data'], 
-        config['save_data']
-        )
+        file_paths['non_target_file'], file_paths['stored_non_t_file'], 
+        pattern, num_sents, load_data, save_data )
 
     # t = set([word for words in sentences for word in words])
-    # for target in config['targets']:
+    # for target in targets:
     #     if target in t:
     #         print(target)
 
-    if config['run'] == 'sense':
-        clean_sents, found_senses = get_sense_data(
-            config['sense_file'], config['targets'])
+    if vector_type == 'sense':
+        clean_sents, found_senses = get_sense_data( file_paths['sense_file'], targets )
         
         print(f'{len(Counter(found_senses)):,} senses found')
         print('5 most common targets')
         print(Counter(found_senses).most_common(5))
 
-    elif config['run'] == 'new':
+    elif vector_type == 'normal':
         clean_sents = get_target_data(
-            config['target_file'], config['stored_t_file'], 
-            config['pattern'],
-            config['load_data'], config['save_data'])
+            file_paths['target_file'], file_paths['stored_t_file'], 
+            pattern, load_data, save_data )
         # clean_sents = get_target_data(
-        #     config['target_file'], config['stored_t_file'], 
-        #     False, True)
+        #     file_paths['target_file'], file_paths['stored_t_file'], 
+        #     pattern, False, True)
         ## listcomp w/ intersect; should see a target 
         few_sents = [word for sent in clean_sents[:5] for word in sent]
-        print(f'Target(s) present in first few sentences:', set(few_sents).intersection(set(config['targets'])))
+        print(f'Target(s) present in first few sentences:', set(few_sents).intersection(set(targets)))
 
     sentences.extend(clean_sents)
     print(f'\n{len(sentences):,} total sentences prepped for model')
 
-    model = save_model(
-        config['export_file'], 
-        sentences, 
-        config['min_count'], 
-        config['vector_size'])
+    model = save_model( file_paths['export_file'], sentences, min_count, vector_size )
     print(f'Model length: {len(model.wv.index_to_key):,}')
 
     ##### 
     ## Few checks for making sure senses were accounted for correctly
     if verify_senses:
-        targets = [target.split('_')[0] for target in config['targets']]
+        targets = [target.split('_')[0] for target in targets]
         not_removed = []
         included = []
         for target in targets:
@@ -280,7 +252,7 @@ def main(config, verify_senses=False):
         print(f'{len(not_removed)} target bases not removed')
         print(', '.join(not_removed))
 
-        for target in config['targets']:
+        for target in targets:
             if target in model.wv.index_to_key:
                 included.append(target)
         print(f'\n{len(included)} targets included')
