@@ -2,11 +2,11 @@
 from base_wv import main, make_config
 import itertools
 
-def make_wv(corpus_name, run, dataset="news", data_path="/data/arrinj"):
+def make_wv(corpus_name, vector_type, dataset="news", data_path="/data/arrinj"):
     min_count = 45
     vector_size = 300
 
-    if run == 'new':
+    if vector_type == 'normal':
         load_data = False
         save_data = True
     else:
@@ -22,7 +22,7 @@ def make_wv(corpus_name, run, dataset="news", data_path="/data/arrinj"):
         }
 
     wv_config = make_config(
-            dataset, corpus_name, run, min_count, 
+            dataset, corpus_name, vector_type, min_count, 
             vector_size, targets, load_data, save_data, 
             data_path, paths)
 
@@ -30,11 +30,11 @@ def make_wv(corpus_name, run, dataset="news", data_path="/data/arrinj"):
     print('\n\n')
     
 corpora = ['conspiracy', 'mainstream'] # , 
-run_types = ['new', 'sense']
+vector_types = ['normal', 'sense']
 
-for corpus_name, run in itertools.product(corpora, run_types):
-    print(f'\n\n\n======= Making {corpus_name} {run} wordvector =======')
-    make_wv(corpus_name, run)
+for corpus_name, vector_type in itertools.product(corpora, vector_types):
+    print(f'\n\n\n======= Making {corpus_name} {vector_type} wordvector =======')
+    make_wv(corpus_name, vector_type)
 
 print('Done!')
 
