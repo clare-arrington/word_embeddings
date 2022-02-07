@@ -60,26 +60,32 @@ def load_data_sentences(path, subset=None):
     else: 
         num_samples = len(sentences)
 
-    print(f'{num_samples} sentences\n')
+    # print(f'{num_samples} sentences\n')
     return sentences
 
-# Reg pattern matches three things: word.#, word_pos, word
-def clean_sentences(sentences, pattern):
+def clean_regular_sentences(sentences, pattern):
     print(f'\nCleaning data by applying regex pattern : {pattern}')
 
     reg_pattern = re.compile(pattern)
+    stops = stopwords.words('english')
 
     clean_sents = []
     for sent in tqdm.tqdm(sentences):
         sent = re.sub('"', '', sent).lower()
-        cleaned = re.findall(reg_pattern, sent)
-        clean_sents.append(cleaned) 
+        new_sent = []
+
+        for word in re.findall(reg_pattern, sent):
+            if word not in stops and len(word) > 2:
+                new_sent.append(word)
+
+        clean_sents.append(new_sent) 
 
     return clean_sents
 
-def filter_sentences(sentences, sense_words=[]):  
+def filter_sentences(sentences, sense_words): 
+    # sense_pattern = r'[a-z]+\.\d' 
     stops = stopwords.words('english')
-    print(f'\nFiltering data ')
+    print(f'\nFiltering out stop words and small words')
 
     found_senses = []
     filtered_sents = []
@@ -88,18 +94,11 @@ def filter_sentences(sentences, sense_words=[]):
         for word in sent:
             word = word.lower()
 
-            ## TODO: think about if and why this part was necessary
+            ## We check for this case first to record if it is a sense term 
             first_word, *etc = word.split('.')
             if first_word in sense_words and len(etc) == 1: 
                 found_senses.append(word)
                 new_sent.append(word) 
-
-            ## If the target word isn't in either format, 
-            ## but we specified it's a target, exclude it.
-            ## That's b/c we have both labeled and unlabeled which is bad 
-            # elif word in sense_words:
-            #     found_senses.append(word)
-            #     new_sent.append(word)
 
             elif word not in stops and len(word) > 2:
                 new_sent.append(word)
@@ -120,11 +119,9 @@ def get_normal_data(
             sentences = pickle.load(pf)
             print(f'\n{len(sentences):,} normal sentences loaded')
     else:    
-        print(f'Loading normal data from {non_target_file}')
+        print(f'\nLoading normal data from {non_target_file}')
         normal_sents = load_data_sentences(non_target_file, subset=num_sents)
-        clean_sents = clean_sentences(normal_sents, pattern)
-        sentences, _ = filter_sentences(clean_sents) 
-        ## above shouldn't need targets b/c no normal sent should have a target word in it anyway
+        sentences = clean_regular_sentences(normal_sents, pattern)
 
         if save_data:
             Path(stored_non_t_file).parent.mkdir(parents=True, exist_ok=True)
@@ -142,6 +139,7 @@ def get_sense_data(sense_file, targets):
         sents = pd.read_pickle(sense_file)
         sense_sents = sents.sense_sentence
 
+    ## Shouldn't clean sentences first because they've already been parsed before
     clean_sents, found_senses = filter_sentences(sense_sents, targets)
     print(f'{len(found_senses):,} sense occurences found')
 
@@ -155,7 +153,7 @@ def get_target_data(target_file, stored_t_file, pattern, load_data, save_data):
             sentences = pickle.load(pf)
             print(f'\n{len(sentences):,} target sentences loaded')
     else:    
-        print(f'Loading target data from {target_file}')
+        print(f'\nLoading target data from {target_file}')
         if '.csv' in target_file:
             data = pd.read_csv(target_file)
         elif '.pkl' in target_file:
@@ -163,9 +161,9 @@ def get_target_data(target_file, stored_t_file, pattern, load_data, save_data):
             ## TODO: change processed sentence in news
         
         sentences = list(data.sentence)
-        sentences = clean_sentences(sentences, pattern)
-        ## TODO: also filter?
+        sentences = clean_regular_sentences(sentences, pattern)
         print(f'{len(sentences):,} target sentences loaded')
+        print('First cleaned sentence for sanity check:')
         print(sentences[0])
 
         if save_data:
@@ -177,10 +175,10 @@ def get_target_data(target_file, stored_t_file, pattern, load_data, save_data):
     return sentences
 
 def save_model(export_file, sentences, min_count, vector_size):
-    print('Starting to make model')
+    print('\nMaking model...')
     Path(export_file).parent.mkdir(parents=True, exist_ok=True)
     model = Word2Vec(sentences, vector_size=vector_size, min_count=min_count, window=10)
-    print('Starting to save model')
+    print('Saving model...')
     model.save(export_file)
     print('Model saved!')
     return model
@@ -198,7 +196,7 @@ def main(
     file_paths: Dict[str, str],
 
     num_sents : int = None,
-    pattern: str = r'[a-z]+\.\d|[a-z]+',
+    pattern: str = r'[a-z]+',
     verify_senses: bool = False
     ):    
 
@@ -219,17 +217,15 @@ def main(
     if vector_type == 'sense':
         clean_sents, found_senses = get_sense_data( file_paths['sense_file'], targets )
         
-        print(f'{len(Counter(found_senses)):,} senses found')
-        print('5 most common targets')
-        print(Counter(found_senses).most_common(5))
+        print(f'\n{len(Counter(found_senses)):,} senses found')
+        sense_freqs = Counter(found_senses).most_common()
+        print(f'5 most common targets : {sense_freqs[:5]}')
+        print(f'5 least common targets : {sense_freqs[-5:]}')
 
     elif vector_type == 'normal':
         clean_sents = get_target_data(
             file_paths['target_file'], file_paths['stored_t_file'], 
             pattern, load_data, save_data )
-        # clean_sents = get_target_data(
-        #     file_paths['target_file'], file_paths['stored_t_file'], 
-        #     pattern, False, True)
         ## listcomp w/ intersect; should see a target 
         few_sents = [word for sent in clean_sents[:5] for word in sent]
         print(f'Target(s) present in first few sentences:', set(few_sents).intersection(set(targets)))
