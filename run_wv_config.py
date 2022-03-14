@@ -5,7 +5,8 @@ from base_wv import main
 ## Import the wv_config you want to use
 # from config_files.semeval_config import file_paths, wv_config
 # from config_files.us_uk_config import file_paths, wv_config
-from config_files.arxiv_config import file_paths, wv_config
+# from config_files.arxiv_config import file_paths, wv_config
+from config_files.time_config import file_paths, wv_config
 
 def make_wv(corpus_name, vector_type, wv_config, file_paths):
     print(f"\n\n==== Going to make a {vector_type} word vector from {corpus_name} data ====\n")
@@ -20,18 +21,21 @@ def make_wv(corpus_name, vector_type, wv_config, file_paths):
         print("Unknown vector type defined")
         return
 
-    ## TODO: find a better way to define path templates and fill them later
+    ## TODO: find a better way to define path templates and eval them later
     ## Bc eval is unsafe 
+    dataset = wv_config['dataset_name']
     paths = {}
     for path_name, path in file_paths.items():
         path = eval(f"f'{path}'")
         paths[path_name] = path
 
+    with open(wv_config['corpora_targets'][corpus_name]) as f:
+        targets = f.read().split()
+
     main(
         vector_type, 
         wv_config['min_count'], wv_config['vector_size'], 
-        wv_config['corpora_targets'][corpus_name], 
-        load_data, save_data, 
+        targets, load_data, save_data, 
         wv_config['data_path'], paths)
 
 #%%

@@ -11,28 +11,15 @@ import tqdm
 import re
 
 ## TODO: adding a log file would be nice
-## Could also save config as JSON or something for reference
-## Transition over all input data to pkl files
+## TODO: transition all input data over to pkl files
 
-## TODO: Paths get set to default values. This could use an overhaul, but what?
-def define_paths(
-    dataset_name: str, 
-    corpus_name: str, 
-    vector_type: str, 
+def modify_slice_paths(
+    paths: Dict[str, str],
     data_path: str, 
-    slice_num: int,
-    paths: Dict[str, str] = {}
+    slice_num: int
     ):
 
     slice_path = f'/slice_{slice_num}'
-
-    paths = {
-        'corpus_path'     : f'corpus_data/{dataset_name}/subset/{corpus_name}',
-        'target_path'     : f'corpus_data/{dataset_name}/subset',
-        'extra_data_path' : f'word_vectors/{dataset_name}/extra_data/{corpus_name}',
-        'wv_path'         : f'word_vectors/{dataset_name}/{vector_type}/{corpus_name}',
-        'masking_path'    : f'masking_results/{dataset_name}/{corpus_name}',
-    }
 
     for path_name, path in paths.items():
         if 'wv' in path_name:
@@ -110,7 +97,7 @@ def filter_sentences(sentences, sense_words):
 def get_normal_data(
     non_target_file, stored_non_t_file, 
     pattern,
-    num_sents=None,
+    max_sents=None,
     load_data=False, save_data=False):
 
     if load_data:
@@ -120,7 +107,7 @@ def get_normal_data(
             print(f'\n{len(sentences):,} normal sentences loaded')
     else:    
         print(f'\nLoading normal data from {non_target_file}')
-        normal_sents = load_data_sentences(non_target_file, subset=num_sents)
+        normal_sents = load_data_sentences(non_target_file, subset=max_sents)
         sentences = clean_regular_sentences(normal_sents, pattern)
 
         if save_data:
@@ -174,28 +161,16 @@ def get_target_data(target_file, stored_t_file, pattern, load_data, save_data):
 
     return sentences
 
-def save_model(export_file, sentences, min_count, vector_size):
-    print('\nMaking model...')
-    Path(export_file).parent.mkdir(parents=True, exist_ok=True)
-    model = Word2Vec(sentences, vector_size=vector_size, min_count=min_count, window=10)
-    print('Saving model...')
-    model.save(export_file)
-    print('Model saved!')
-    return model
-
 #%%
-def main(
+def main (
     vector_type: str, 
-    min_count : int,
-    vector_size : int,
+    min_count : int, vector_size : int,
     targets : List[str], 
 
-    load_data : bool, 
-    save_data : bool, 
-    data_path: str, 
-    file_paths: Dict[str, str],
+    load_data : bool, save_data : bool, 
+    data_path: str, file_paths: Dict[str, str],
 
-    num_sents : int = None,
+    max_sents : int = None,
     pattern: str = r'[a-z]+',
     verify_senses: bool = False
     ):    
@@ -207,7 +182,7 @@ def main(
 
     sentences = get_normal_data(
         file_paths['non_target_file'], file_paths['stored_non_t_file'], 
-        pattern, num_sents, load_data, save_data )
+        pattern, max_sents, load_data, save_data )
 
     # t = set([word for words in sentences for word in words])
     # for target in targets:
@@ -233,7 +208,14 @@ def main(
     sentences.extend(clean_sents)
     print(f'\n{len(sentences):,} total sentences prepped for model')
 
-    model = save_model( file_paths['export_file'], sentences, min_count, vector_size )
+    print('\nMaking model...')
+    model = Word2Vec(sentences, vector_size=vector_size, min_count=min_count, window=10)
+
+    print('Saving model...')
+    Path(file_paths['export_file']).parent.mkdir(parents=True, exist_ok=True)
+    model.save(file_paths['export_file'])
+    print('Model saved!')    
+
     print(f'Model length: {len(model.wv.index_to_key):,}')
 
     ##### 
