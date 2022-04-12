@@ -32,30 +32,31 @@ def get_us_uk_targets(path, get_us=False, get_uk=False):
 ## I should just filter it out myself for other words I think
 ## Min_word_count from paper: 100 BNC, 300 COCA
 
+dataset = 'us_uk'
 data_path = "/data/arrinj"
+target_path = f'{data_path}/corpus_data/us_uk/truth'
 
-config = {
+wv_config = {
+    "dataset_name"  : dataset,
     "data_path"     : data_path,
-    "min_count"     : 100,
-    "vector_size"   : 100,
-    "corpora"       : {
-        "bnc" : {
-            "targets" : get_us_uk_targets(f"{data_path}/corpus_data/us_uk/truth", get_uk=True)
-        },
-        "coca" : {
-            "targets" : get_us_uk_targets(f"{data_path}/corpus_data/us_uk/truth", get_us=True)
+    "min_count"       : 100,
+    "vector_size"     : 100,
+    "pattern"       : r'[a-z]+',
+    "corpora_targets" : {
+        # "bnc"  : f"{target_path}/uk.txt",
+        "coca" : f"{target_path}/us.txt"
         }
-    }
 }
 
 file_paths = {
-        "export_file"       : "word_vectors/us_uk/{vector_type}/{corpus_name}.vec",
-        "sense_file"        : "masking_results/us_uk/{corpus_name}/sense_sentences.pkl",
+        "sense_file"        : "masking_results/{dataset}/{corpus_name}/sense_sentences.pkl",
 
-        "target_file"       : "corpus_data/us_uk/subset/target_sentences.pkl",
-        "stored_non_t_file" : "word_vectors/us_uk/extra_data/{corpus_name}_normal_sents.pkl",
+        "target_file"       : "corpus_data/{dataset}/subset/target_sentences.pkl",
+        "stored_non_t_file" : "word_vectors/{dataset}/extra_data/{corpus_name}_normal_sents.pkl",
 
-        "non_target_file"   : "corpus_data/us_uk/subset/{corpus_name}_non_target.dat",
-        "stored_t_file"     : "word_vectors/us_uk/extra_data/{corpus_name}_target_sents.pkl"
+        "non_target_file"   : "corpus_data/{dataset}/subset/{corpus_name}_non_target.dat",
+        "stored_t_file"     : "word_vectors/{dataset}/extra_data/{corpus_name}_target_sents.pkl",
+
+        "export_file"       : "word_vectors/{dataset}/{vector_type}/{corpus_name}.vec"
     }
 #%%

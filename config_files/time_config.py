@@ -2,7 +2,6 @@
 dataset = 'time'
 data_path = '/home/clare/Data'
 target_path = f'{data_path}/corpus_data/time/targets.txt'
-wv_path = 'word_vectors/time'
 
 wv_config = {
     "dataset_name"  : dataset,
@@ -21,10 +20,10 @@ file_paths = {
         "sense_file"        : "masking_results/{dataset}/{corpus_name}/sense_sentences.pkl",
 
         "target_file"       : "corpus_data/{dataset}/subset/target_sentences.pkl",
-        "stored_non_t_file" : wv_path + "/extra_data/{corpus_name}_normal_sents.pkl",
+        "stored_non_t_file" : "word_vectors/{dataset}/extra_data/{corpus_name}_normal_sents.pkl",
 
         "non_target_file"   : "corpus_data/{dataset}/subset/{corpus_name}_non_target.dat",
-        "stored_t_file"     : wv_path + "/extra_data/{corpus_name}_target_sents.pkl",
+        "stored_t_file"     : "word_vectors/{dataset}/extra_data/{corpus_name}_target_sents.pkl",
 
-        "export_file"       : wv_path + "/{vector_type}/{corpus_name}.vec"
+        "export_file"       : "word_vectors/{dataset}/{vector_type}/{corpus_name}.vec"
     }
