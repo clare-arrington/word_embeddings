@@ -1,25 +1,10 @@
 #%%
-import itertools
+from dotenv import dotenv_values
 from base_wv import main
+import json
 
-## Import the wv_config you want to use
-# from config_files.semeval_config import file_paths, wv_config
-# from config_files.us_uk_config import file_paths, wv_config
-# from config_files.arxiv_config import file_paths, wv_config
-from config_files.time_config import file_paths, wv_config
-
-def make_wv(corpus_name, vector_type, wv_config, file_paths):
-    print(f"\n\n==== Going to make a {vector_type} word vector from {corpus_name} data ====\n")
-
-    if vector_type == "normal":
-        load_data = False
-        save_data = True
-    elif vector_type == "sense":
-        load_data = True
-        save_data = False
-    else:
-        print("Unknown vector type defined")
-        return
+def make_wv(c_group, corpus_name, wv_config, file_paths, data_path):
+    print(f"\n\n======== Pulling {c_group} : {corpus_name} data ========\n")
 
     ## TODO: find a better way to define path templates and eval them later
     ## Bc eval is unsafe 
@@ -27,29 +12,25 @@ def make_wv(corpus_name, vector_type, wv_config, file_paths):
     paths = {}
     for path_name, path in file_paths.items():
         path = eval(f"f'{path}'")
-        paths[path_name] = path
+        paths[path_name] = data_path + path
 
-    with open(wv_config['corpora_targets'][corpus_name]) as f:
-        targets = f.read().split()
-
-    main(
-        vector_type, 
-        wv_config['min_count'], wv_config['vector_size'], 
-        targets, load_data, save_data, 
-        wv_config['data_path'], paths)
+    main(paths, wv_config)
 
 #%%
-def batch_run(wv_config, file_paths):
-    vector_types = ("normal", "sense")
-    t = itertools.product(wv_config['corpora_targets'].keys(), vector_types)
-    
-    for corpus_name, vector_type in t:
-        make_wv(corpus_name, vector_type, wv_config, file_paths)
-
 if __name__ == "__main__":
 
-    print(f"==== Starting batch run for {wv_config['dataset_name']} ====")
+    dataset_name = 'spanish'
+    data_path = dotenv_values(".env")['data_path']
 
-    batch_run(wv_config, file_paths)
+    with open(f"config_files/{dataset_name}.json", "r") as read_file:
+        config = json.load(read_file)
 
-#%%
+    corpora = config['wv_config']['corpora']
+    for c_group in corpora:
+        for corpus_name in corpora[c_group]:
+            make_wv(c_group, corpus_name, config['wv_config'],
+                    config['file_paths'], data_path)
+
+    print('All done!')
+
+# %%
