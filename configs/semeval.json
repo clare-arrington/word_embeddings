@@ -1,0 +1,27 @@
+{   "wv_config" : 
+    {
+        "dataset_name"  : "semeval",
+        "corpora"       : {
+            "1800s" : ["1800s"], 
+            "2000s" : ["2000s"],
+            "both"  : ["1800s", "2000s"]
+        },
+        "vector_types"  : [
+            "normal",
+            "sense"
+        ],
+        "min_count"     : 50,
+        "vector_size"   : 300,
+        "pattern": "[a-z]+_nn|[a-z]+_vb|[a-z]+"
+    },
+    "file_paths" : 
+    {
+        "target_file"       : "masking_results/semeval/{c_group}/target_sense_labels.pkl",
+        "sense_file"        : "masking_results/semeval/{c_group}/{corpus_name}_sense_sentences.pkl",
+        
+        "sent_file"        : "corpus_data/semeval/subset/{corpus_name}_indexed_sentences.pkl",
+        
+        "stored_file"       : "word_vectors/semeval/extra_data/{corpus_name}_sents.pkl",
+        "export_file"       : "word_vectors/semeval/{c_group}/VECTOR_TYPE_{corpus_name}.vec"
+    }
+}
