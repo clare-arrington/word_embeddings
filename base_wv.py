@@ -27,19 +27,16 @@ def modify_slice_paths(
 
     return paths
 
-## Loads targets, original sentences and new sense embedded sentences
-def get_data(file_paths):
+## Gets data for respective clustering: senses and sentences with embedded senses 
+def get_sense_data(file_paths):
     with open(file_paths['target_file'], 'rb') as f:
         target_senses = pickle.load(f)
         targets = list(target_senses.target.unique())
     
-    with open(file_paths['sent_file'], 'rb') as f:
-        indexed_sents = pickle.load(f)
-    
     with open(file_paths['sense_file'], 'rb') as f:
         sense_sents = pickle.load(f)
 
-    return target_senses, targets, indexed_sents, sense_sents
+    return target_senses, targets, sense_sents
 
 ## Preprocessing for plain sentences
 def clean_regular_sentences(sentences, stopwords, pattern=None):
@@ -105,43 +102,83 @@ def print_checks(targets, model):
     print(f'\n{len(included)} targets included')
     print(', '.join(included))
 
+## Make the actual word vectors
+def make_wv(
+        sentences, clean_sents, 
+        vector_type, wv_config, export_file, 
+        verify_senses, targets):
+    
+    export_location = re.sub('VECTOR_TYPE', vector_type, export_file)
+    print(f"Model will be saved to {export_location}")
+
+    sentences.extend(clean_sents)
+    print(f'\n{len(sentences):,} total sentences prepped for model')
+
+    print('\nMaking model...')
+    model = Word2Vec(sentences, vector_size=wv_config['vector_size'], 
+                    min_count=wv_config['min_count'], window=10)
+
+    print('Saving model...')
+    Path(export_location).parent.mkdir(parents=True, exist_ok=True)
+    model.save(export_location)
+    print('Model saved!')    
+
+    print(f'Model length: {len(model.wv.index_to_key):,}')
+
+    if verify_senses:
+        ## Few checks for making sure senses were accounted for correctly
+        print_checks(targets, model)
+
 #%%
 ## TODO: adding a log file for this too would be nice
-def main (
+def make_wvs (
     file_paths,
     wv_config,
-    vector_types=['normal','sense'],
+    data_path,
+    dataset_name,
     verify_senses = False
     ):    
 
-    target_senses, targets, indexed_sents, sense_sents = get_data(file_paths)
+    for corpus_name, cluster_path_dict in file_paths.items():
+        print(f"\n\n======== Pulling {corpus_name} data ========")
 
-    ## Sentences are preprocessed different if they have senses
-    ## so split them up
-    ids_w_senses = list(target_senses.sent_idx.unique())
-    sents_w_senses = indexed_sents[indexed_sents.index.isin(ids_w_senses)]
-    sents_wo_senses = indexed_sents[~indexed_sents.index.isin(ids_w_senses)]
+        ## Indexed sentences are shared across all sense versions; just load once
+        export_file= data_path + f"word_vectors/{dataset_name}/VECTOR_TYPE/{corpus_name}.vec"
+        sent_file = data_path + f"corpus_data/{dataset_name}/subset/{corpus_name}_indexed_sentences.pkl"
+        with open(sent_file, 'rb') as f:
+            indexed_sents = pickle.load(f)
+            main_sentences = None
 
-    stopwords = sw.words(wv_config['language'])
-    stopwords.remove('no')
-    
-    reg_sents = list(sents_wo_senses.sent)
-    main_sentences = clean_regular_sentences(reg_sents, stopwords)
+        for cluster_type, sense_paths in cluster_path_dict.items():
+            target_senses, targets, sense_sents = get_sense_data(sense_paths)
 
-    # t = set([word for words in sentences for word in words])
-    # for target in targets:
-    #     if target in t:
-    #         print(target)
+            ## Sentences are preprocessed different if they have senses, so split them up
+            ids_w_senses = list(target_senses.sent_idx.unique())
+            sents_w_senses = indexed_sents[indexed_sents.index.isin(ids_w_senses)]
 
-    for vector_type in vector_types:
-        print(f"\n\n==== Prepping a {vector_type} word vector ====\n")
-        export_location = re.sub('VECTOR_TYPE', vector_type, file_paths['export_file'])
-        print(f"Model will be saved to {export_location}")
+            stopwords = sw.words(wv_config['language'])
+            stopwords.remove('no')
 
-        sentences = main_sentences
+            ## Make the vector without senses, but only once
+            if main_sentences is None:
+                print(f"\n\n==== Prepping a word vector without senses ====")
+                print('Loading regular sentences for all vectors')
+                sents_wo_senses = indexed_sents[~indexed_sents.index.isin(ids_w_senses)]
+                reg_sents = list(sents_wo_senses.sent)
+                main_sentences = clean_regular_sentences(reg_sents, stopwords)
 
-        if vector_type == 'sense':
-            ## Shouldn't clean sentences because they've already been parsed
+                print('\nLoading sense sentences without the senses')
+                reg_sents = list(sents_w_senses.sent)
+                clean_sents = clean_regular_sentences(reg_sents, stopwords, wv_config['pattern'])
+
+                few_sents = [word for sent in clean_sents[:5] for word in sent]
+                print(f'Target(s) present in first few sentences:', set(few_sents).intersection(set(targets)))
+
+                make_wv(main_sentences.copy(), clean_sents, 'no_sense', 
+                        wv_config, export_file, verify_senses, targets)
+
+            ##### Sense cluster word vector
+            print(f"\n\n==== Prepping a word vector with {cluster_type} clustering ====")
             clean_sents, found_senses = filter_sentences(
                 sense_sents.sense_sent, stopwords, targets)
             print(f'{len(found_senses):,} sense occurences found')
@@ -151,30 +188,6 @@ def main (
             print(f'5 most common targets : {sense_freqs[:5]}')
             print(f'5 least common targets : {sense_freqs[-5:]}')
 
-        elif vector_type == 'normal':
-            reg_sents = list(sents_w_senses.sent)
-            clean_sents = clean_regular_sentences(reg_sents, stopwords, wv_config['pattern'])
-            ## listcomp w/ intersect; should see a target 
-            few_sents = [word for sent in clean_sents[:5] for word in sent]
-            print(f'Target(s) present in first few sentences:', set(few_sents).intersection(set(targets)))
-
-        sentences.extend(clean_sents)
-        print(f'\n{len(sentences):,} total sentences prepped for model')
-
-        print('\nMaking model...')
-        model = Word2Vec(sentences, vector_size=wv_config['vector_size'], 
-                         min_count=wv_config['min_count'], window=10)
-
-        print('Saving model...')
-        Path(export_location).parent.mkdir(parents=True, exist_ok=True)
-        model.save(export_location)
-        print('Model saved!')    
-
-        print(f'Model length: {len(model.wv.index_to_key):,}')
-
-        ##### 
-        if verify_senses:
-            ## Few checks for making sure senses were accounted for correctly
-            print_checks(targets, model)
-        
-# %%
+            make_wv(main_sentences.copy(), clean_sents, cluster_type, 
+                    wv_config, export_file, verify_senses, targets)
+         

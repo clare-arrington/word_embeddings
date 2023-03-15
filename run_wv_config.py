@@ -1,48 +1,49 @@
 #%%
 from dotenv import dotenv_values
-from base_wv import main
-import json
+from base_wv import make_wvs
+from collections import defaultdict
+import json, itertools
 
 FILE_PATHS = {
-        "target_file"       : "masking_results/{dataset_name}/{c_group}/target_sense_labels.pkl",
-        "sense_file"        : "masking_results/{dataset_name}/{c_group}/{corpus_name}_sense_sentences.pkl",
-        
-        "sent_file"        : "corpus_data/{dataset_name}/subset/{corpus_name}_indexed_sentences.pkl",
-        
-        "stored_file"       : "word_vectors/{dataset_name}/extra_data/{corpus_name}_sents.pkl",
-        "export_file"       : "word_vectors/{dataset_name}/{cluster_type}/VECTOR_TYPE_{corpus_name}.vec"
+        "target_file"   : "masking_results/DATASET_NAME/C_GROUP/target_sense_labels.pkl",
+        "sense_file"    : "masking_results/DATASET_NAME/C_GROUP/CORPUS_NAME_sense_sentences.pkl"
     }
 
-def make_wv(dataset_name, data_path, cluster_type):
+## Generate respective paths for each form of sense clustering
+def get_paths(wv_config, data_path, sense_cluster_types, dataset_name):
 
-    with open(f"configs/{dataset_name}.json", "r") as read_file:
-        wv_config = json.load(read_file)
-        
-    for corpus_name in wv_config['corpora']:
-        if cluster_type == 'shared':
-            c_group = 'shared'
+    cluster_paths = defaultdict(dict)
+    ## We want all formats per corpus to be processed at the same time
+    for corpus_name, cluster_type in itertools.product(wv_config['corpora'], sense_cluster_types): 
+        if cluster_type == 'together':
+            c_group = 'together'
         else:
             c_group = corpus_name
 
-        print(f"\n\n======== Pulling {corpus_name} data from {cluster_type} clustering ========\n")
-        
-        ## this fills the paths defined above with the proper variables
+        ## Fill the paths with the proper variables
         paths = {}
         for path_name, path in FILE_PATHS.items():
-            path = eval(f"f'{path}'")
+            path = path.replace('DATASET_NAME', dataset_name)
+            path = path.replace('C_GROUP', c_group)
+            path = path.replace('CORPUS_NAME', corpus_name)
+            path = path.replace('CLUSTER_TYPE', cluster_type)
             paths[path_name] = data_path + path
 
-        main(paths, wv_config)
+        cluster_paths[corpus_name][cluster_type] = paths
+    return cluster_paths
 
 #%%
 if __name__ == "__main__":
-
-    dataset_name = 'semeval'
     data_path = dotenv_values(".env")['data_path']
     sense_cluster_types = ['individual', 'together']
+    dataset_name = 'semeval'
 
-    for cluster_type in sense_cluster_types:
-        make_wv(dataset_name, data_path, cluster_type)
+    with open(f"configs/{dataset_name}.json", "r") as read_file:
+        wv_config = json.load(read_file)
+
+    paths = get_paths(wv_config, data_path, sense_cluster_types, dataset_name)
+
+    make_wvs(paths, wv_config, data_path, dataset_name)
 
     print('All done!')
 
