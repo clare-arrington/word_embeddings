@@ -8,7 +8,6 @@ import pickle
 import tqdm
 import re
 
-## TODO: adding a log file would be nice
 def modify_slice_paths(
     paths: Dict[str, str],
     data_path: str, 
@@ -28,6 +27,7 @@ def modify_slice_paths(
 
     return paths
 
+## Loads targets, original sentences and new sense embedded sentences
 def get_data(file_paths):
     with open(file_paths['target_file'], 'rb') as f:
         target_senses = pickle.load(f)
@@ -41,6 +41,7 @@ def get_data(file_paths):
 
     return target_senses, targets, indexed_sents, sense_sents
 
+## Preprocessing for plain sentences
 def clean_regular_sentences(sentences, stopwords, pattern=None):
     if pattern is not None:
         reg_pattern = re.compile(pattern)
@@ -63,6 +64,7 @@ def clean_regular_sentences(sentences, stopwords, pattern=None):
 
     return clean_sents
 
+## Preprocessing for sense sentences
 def filter_sentences(sentences, stopwords, sense_words): 
     print(f'\nCleaning the sentences with senses')
 
@@ -86,6 +88,7 @@ def filter_sentences(sentences, stopwords, sense_words):
 
     return filtered_sents, found_senses
   
+## Verify the models 
 def print_checks(targets, model):
     targets = [target.split('_')[0] for target in targets]
     not_removed = []
@@ -103,15 +106,18 @@ def print_checks(targets, model):
     print(', '.join(included))
 
 #%%
+## TODO: adding a log file for this too would be nice
 def main (
     file_paths,
     wv_config,
-    max_sents = None,
+    vector_types=['normal','sense'],
     verify_senses = False
     ):    
 
     target_senses, targets, indexed_sents, sense_sents = get_data(file_paths)
 
+    ## Sentences are preprocessed different if they have senses
+    ## so split them up
     ids_w_senses = list(target_senses.sent_idx.unique())
     sents_w_senses = indexed_sents[indexed_sents.index.isin(ids_w_senses)]
     sents_wo_senses = indexed_sents[~indexed_sents.index.isin(ids_w_senses)]
@@ -119,7 +125,6 @@ def main (
     stopwords = sw.words(wv_config['language'])
     stopwords.remove('no')
     
-    ## Regardless of vector type, treat sentences without senses the same
     reg_sents = list(sents_wo_senses.sent)
     main_sentences = clean_regular_sentences(reg_sents, stopwords)
 
@@ -128,8 +133,8 @@ def main (
     #     if target in t:
     #         print(target)
 
-    for vector_type in wv_config['vector_types']:
-        print(f"\n\n==== Going to make a {vector_type} word vector ====\n")
+    for vector_type in vector_types:
+        print(f"\n\n==== Prepping a {vector_type} word vector ====\n")
         export_location = re.sub('VECTOR_TYPE', vector_type, file_paths['export_file'])
         print(f"Model will be saved to {export_location}")
 
@@ -168,8 +173,8 @@ def main (
         print(f'Model length: {len(model.wv.index_to_key):,}')
 
         ##### 
-        ## Few checks for making sure senses were accounted for correctly
         if verify_senses:
+            ## Few checks for making sure senses were accounted for correctly
             print_checks(targets, model)
         
 # %%
